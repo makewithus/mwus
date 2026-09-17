@@ -1,0 +1,94 @@
+import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { requireAdmin } from "@/lib/auth/server";
+import { createAuditLog } from "@/lib/services/audit";
+import { createTimelineEvent } from "@/lib/services/timeline";
+
+export async function PATCH(request, { params }) {
+  try {
+    const adminUser = await requireAdmin();
+    const { id } = await params;
+    const data = await request.json();
+
+    const projectRef = adminDb.collection("projects").doc(id);
+    const projectSnap = await projectRef.get();
+
+    if (!projectSnap.exists) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    const previousData = projectSnap.data();
+    const allowedFields = ["status", "health", "developerIds", "expectedDeliveryDate", "description", "name"];
+    
+    let updates = {};
+    let changesMade = false;
+    let descriptionParts = [];
+
+    for (const field of allowedFields) {
+      if (data[field] !== undefined && JSON.stringify(data[field]) !== JSON.stringify(previousData[field])) {
+        updates[field] = data[field];
+        changesMade = true;
+        descriptionParts.push(`Changed ${field}`);
+      }
+    }
+
+    if (!changesMade) {
+      return NextResponse.json({ message: "No changes detected" });
+    }
+
+    updates.updatedAt = new Date().toISOString();
+
+    const batch = adminDb.batch();
+    batch.update(projectRef, updates);
+
+    // 1. Audit Log
+    createAuditLog(batch, {
+      actorId: adminUser.uid,
+      actorName: adminUser.name || adminUser.email,
+      actorRole: "admin",
+      action: "UPDATE_PROJECT",
+      entityType: "PROJECT",
+      entityId: id,
+      clientId: previousData.clientId,
+      projectId: id,
+      previousValue: previousData,
+      newValue: { ...previousData, ...updates },
+      description: `Updated project: ${descriptionParts.join(", ")}`
+    });
+
+    // 2. Timeline Events for specific important fields
+    if (updates.status && updates.status !== previousData.status) {
+      createTimelineEvent(batch, id, {
+        type: "STATUS_CHANGE",
+        title: "Project Status Updated",
+        description: `Status changed from ${previousData.status} to ${updates.status}`,
+        actorId: adminUser.uid,
+        actorName: adminUser.name || adminUser.email,
+        actorRole: "admin",
+        metadata: { oldStatus: previousData.status, newStatus: updates.status }
+      });
+    }
+
+    if (updates.health && updates.health !== previousData.health) {
+      createTimelineEvent(batch, id, {
+        type: "HEALTH_CHANGE",
+        title: "Project Health Updated",
+        description: `Health status changed to ${updates.health.replace('_', ' ')}`,
+        actorId: adminUser.uid,
+        actorName: adminUser.name || adminUser.email,
+        actorRole: "admin",
+        metadata: { oldHealth: previousData.health, newHealth: updates.health }
+      });
+    }
+
+    await batch.commit();
+
+    return NextResponse.json({ message: "Project updated successfully" });
+  } catch (error) {
+    console.error("Error updating project:", error);
+    if (error.message.startsWith("Forbidden") || error.message.startsWith("Unauthorized")) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
