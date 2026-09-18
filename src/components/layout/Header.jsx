@@ -4,14 +4,17 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { User, LogOut, Menu } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export function Header({ onMenuClick }) {
   const { user, logout } = useAuth();
+  const router = useRouter();
 
   const handleLogout = async () => {
     try {
       await logout();
       toast.success("Successfully logged out");
+      router.replace("/login");
     } catch (error) {
       toast.error("Failed to log out");
     }
