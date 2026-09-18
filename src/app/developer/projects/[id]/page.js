@@ -148,7 +148,7 @@ export default function DeveloperProjectManagePage({ params }) {
                 milestones.map((m, i) => (
                   <div key={m.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 gap-2 border border-border bg-background rounded-sm">
                     <span className="text-sm font-medium">{m.title}</span>
-                    <select className="border border-input rounded-sm px-2 py-1 text-xs bg-transparent"
+                    <select className="border border-input rounded-sm px-2 py-1 text-xs bg-background"
                       value={m.status} onChange={e => {
                         const newM = [...milestones];
                         newM[i].status = e.target.value;

@@ -29,7 +29,7 @@ export default function AdminProjectsPage() {
     try {
       const [snapshot, clientsSnapshot, devsSnapshot] = await Promise.all([
         getDocs(query(collection(db, "projects"), orderBy("createdAt", "desc"))),
-        getDocs(query(collection(db, "clients"), orderBy("companyName"))),
+        getDocs(query(collection(db, "clients"), orderBy("createdAt", "desc"))),
         getDocs(query(collection(db, "users"), where("role", "==", "developer")))
       ]);
       
@@ -183,7 +183,7 @@ export default function AdminProjectsPage() {
               
               <div>
                 <label className="block text-sm font-medium mb-1">Client *</label>
-                <select required className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                <select required className="w-full flex h-10 rounded-sm border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   value={formData.clientId} onChange={e => setFormData({...formData, clientId: e.target.value})}>
                   <option value="">Select a Client...</option>
                   {clients.map(c => (

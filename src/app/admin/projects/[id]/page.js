@@ -129,7 +129,7 @@ export default function AdminProjectManagePage({ params }) {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Status</label>
-                <select className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
+                <select className="w-full flex h-10 rounded-sm border border-input bg-background px-3 py-2 text-sm"
                   value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
                   <option value="onboarding">Onboarding</option>
                   <option value="in_progress">In Progress</option>
@@ -144,7 +144,7 @@ export default function AdminProjectManagePage({ params }) {
 
               <div>
                 <label className="block text-sm font-medium mb-1">Health</label>
-                <select className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
+                <select className="w-full flex h-10 rounded-sm border border-input bg-background px-3 py-2 text-sm"
                   value={formData.health} onChange={e => setFormData({...formData, health: e.target.value})}>
                   <option value="on_track">On Track</option>
                   <option value="at_risk">At Risk</option>
@@ -183,7 +183,7 @@ export default function AdminProjectManagePage({ params }) {
                       newScope[i].title = e.target.value;
                       setScope(newScope);
                     }} placeholder="Scope item (e.g. Home page)" />
-                  <select className="border border-input rounded-sm px-2 text-sm bg-transparent"
+                  <select className="border border-input rounded-sm px-2 text-sm bg-background"
                     value={item.status} onChange={e => {
                       const newScope = [...scope];
                       newScope[i].status = e.target.value;
@@ -215,7 +215,7 @@ export default function AdminProjectManagePage({ params }) {
                       newM[i].title = e.target.value;
                       setMilestones(newM);
                     }} placeholder="Milestone (e.g. UI Design)" />
-                  <select className="border border-input rounded-sm px-2 text-sm bg-transparent"
+                  <select className="border border-input rounded-sm px-2 text-sm bg-background"
                     value={item.status} onChange={e => {
                       const newM = [...milestones];
                       newM[i].status = e.target.value;
