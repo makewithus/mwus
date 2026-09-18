@@ -5,6 +5,7 @@ import { doc, getDoc, collection, getDocs, query, where } from "firebase/firesto
 import { db, auth } from "@/lib/firebase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
+import { MilestoneTracker } from "@/components/projects/MilestoneTracker";
 
 export default function AdminProjectManagePage({ params }) {
   const unwrappedParams = use(params);
@@ -14,7 +15,10 @@ export default function AdminProjectManagePage({ params }) {
   const [developers, setDevelopers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
+  const [savingScope, setSavingScope] = useState(false);
+  const [savingMilestones, setSavingMilestones] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+
   const [formData, setFormData] = useState({});
   const [scope, setScope] = useState([]);
   const [milestones, setMilestones] = useState([]);
@@ -30,7 +34,9 @@ export default function AdminProjectManagePage({ params }) {
           setFormData({
             status: data.status || "onboarding",
             health: data.health || "on_track",
-            developerIds: data.developerIds || []
+            developerIds: data.developerIds || [],
+            startDate: data.startDate || "",
+            expectedDeliveryDate: data.expectedDeliveryDate || ""
           });
           setScope(data.scope || []);
           setMilestones(data.milestones || []);
@@ -81,6 +87,8 @@ export default function AdminProjectManagePage({ params }) {
   };
 
   const handleSaveScope = async () => {
+    if (savingScope) return;
+    setSavingScope(true);
     try {
       const token = await auth.currentUser.getIdToken();
       const res = await fetch(`/api/projects/${id}/scope`, {
@@ -92,10 +100,14 @@ export default function AdminProjectManagePage({ params }) {
       toast.success("Scope saved successfully");
     } catch (error) {
       toast.error(error.message);
+    } finally {
+      setSavingScope(false);
     }
   };
 
   const handleSaveMilestones = async () => {
+    if (savingMilestones) return;
+    setSavingMilestones(true);
     try {
       const token = await auth.currentUser.getIdToken();
       const res = await fetch(`/api/projects/${id}/milestones`, {
@@ -107,6 +119,31 @@ export default function AdminProjectManagePage({ params }) {
       toast.success("Milestones saved successfully");
     } catch (error) {
       toast.error(error.message);
+    } finally {
+      setSavingMilestones(false);
+    }
+  };
+
+  const handleToggleArchive = async () => {
+    if (archiving) return;
+    const nextArchived = !project.archived;
+    setArchiving(true);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/projects/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ archived: nextArchived })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      toast.success(nextArchived ? "Project archived" : "Project restored");
+      setProject(prev => ({ ...prev, archived: nextArchived }));
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -116,7 +153,13 @@ export default function AdminProjectManagePage({ params }) {
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">{project.name}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold">{project.name}</h1>
+          {project.archived && <span className="text-xs px-2 py-1 bg-muted uppercase tracking-wider font-medium">Archived</span>}
+        </div>
+        <Button variant="outline" onClick={handleToggleArchive} disabled={archiving}>
+          {archiving ? '...' : project.archived ? 'Restore Project' : 'Archive Project'}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -129,7 +172,7 @@ export default function AdminProjectManagePage({ params }) {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Status</label>
-                <select className="w-full flex h-10 rounded-sm border border-input bg-background px-3 py-2 text-sm"
+                <select className="w-full flex h-10 rounded-none border border-input bg-background px-3 py-2 text-sm"
                   value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
                   <option value="onboarding">Onboarding</option>
                   <option value="in_progress">In Progress</option>
@@ -144,7 +187,7 @@ export default function AdminProjectManagePage({ params }) {
 
               <div>
                 <label className="block text-sm font-medium mb-1">Health</label>
-                <select className="w-full flex h-10 rounded-sm border border-input bg-background px-3 py-2 text-sm"
+                <select className="w-full flex h-10 rounded-none border border-input bg-background px-3 py-2 text-sm"
                   value={formData.health} onChange={e => setFormData({...formData, health: e.target.value})}>
                   <option value="on_track">On Track</option>
                   <option value="at_risk">At Risk</option>
@@ -152,12 +195,25 @@ export default function AdminProjectManagePage({ params }) {
                   <option value="on_hold">On Hold</option>
                 </select>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Start Date</label>
+                  <input type="date" className="w-full flex h-10 rounded-none border border-input bg-background px-3 py-2 text-sm"
+                    value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Expected Delivery</label>
+                  <input type="date" className="w-full flex h-10 rounded-none border border-input bg-background px-3 py-2 text-sm"
+                    value={formData.expectedDeliveryDate} onChange={e => setFormData({...formData, expectedDeliveryDate: e.target.value})} />
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="border border-border bg-surface p-6">
             <h2 className="text-xl font-semibold mb-4">Assigned Developers</h2>
-            <div className="border border-input rounded-sm p-4 space-y-2 max-h-64 overflow-y-auto">
+            <div className="border border-input rounded-none p-4 space-y-2 max-h-64 overflow-y-auto">
               {developers.map(dev => (
                 <label key={dev.id} className="flex items-center gap-2 text-sm cursor-pointer">
                   <input type="checkbox" checked={formData.developerIds.includes(dev.id)} onChange={() => handleDevToggle(dev.id)} />
@@ -172,18 +228,18 @@ export default function AdminProjectManagePage({ params }) {
           <div className="border border-border bg-surface p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
               <h2 className="text-xl font-semibold">Project Scope</h2>
-              <Button onClick={handleSaveScope}>Save Scope</Button>
+              <Button onClick={handleSaveScope} disabled={savingScope}>{savingScope ? 'Saving...' : 'Save Scope'}</Button>
             </div>
             <div className="space-y-3">
               {scope.map((item, i) => (
                 <div key={item.id} className="flex flex-col sm:flex-row gap-2">
-                  <input className="flex-1 border border-input rounded-sm px-3 py-1 text-sm bg-transparent"
+                  <input className="flex-1 border border-input rounded-none px-3 py-1 text-sm bg-transparent"
                     value={item.title} onChange={e => {
                       const newScope = [...scope];
                       newScope[i].title = e.target.value;
                       setScope(newScope);
                     }} placeholder="Scope item (e.g. Home page)" />
-                  <select className="border border-input rounded-sm px-2 text-sm bg-background"
+                  <select className="border border-input rounded-none px-2 text-sm bg-background"
                     value={item.status} onChange={e => {
                       const newScope = [...scope];
                       newScope[i].status = e.target.value;
@@ -204,18 +260,21 @@ export default function AdminProjectManagePage({ params }) {
           <div className="border border-border bg-surface p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
               <h2 className="text-xl font-semibold">Milestones</h2>
-              <Button onClick={handleSaveMilestones}>Save Milestones</Button>
+              <Button onClick={handleSaveMilestones} disabled={savingMilestones}>{savingMilestones ? 'Saving...' : 'Save Milestones'}</Button>
+            </div>
+            <div className="mb-4 pb-4 border-b border-border overflow-x-auto">
+              <MilestoneTracker milestones={milestones} />
             </div>
             <div className="space-y-3">
               {milestones.map((item, i) => (
                 <div key={item.id} className="flex flex-col sm:flex-row gap-2">
-                  <input className="flex-1 border border-input rounded-sm px-3 py-1 text-sm bg-transparent"
+                  <input className="flex-1 border border-input rounded-none px-3 py-1 text-sm bg-transparent"
                     value={item.title} onChange={e => {
                       const newM = [...milestones];
                       newM[i].title = e.target.value;
                       setMilestones(newM);
                     }} placeholder="Milestone (e.g. UI Design)" />
-                  <select className="border border-input rounded-sm px-2 text-sm bg-background"
+                  <select className="border border-input rounded-none px-2 text-sm bg-background"
                     value={item.status} onChange={e => {
                       const newM = [...milestones];
                       newM[i].status = e.target.value;

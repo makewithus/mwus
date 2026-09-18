@@ -6,6 +6,7 @@ import { db, auth } from "@/lib/firebase/client";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
+import { CredentialsModal } from "@/components/ui/CredentialsModal";
 import { toast } from "sonner";
 
 export default function AdminDevelopersPage() {
@@ -17,6 +18,7 @@ export default function AdminDevelopersPage() {
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [isInviting, setIsInviting] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState(null);
 
   async function fetchDevelopers() {
     setLoading(true);
@@ -66,11 +68,12 @@ export default function AdminDevelopersPage() {
         throw new Error(data.error || "Failed to invite developer.");
       }
       
-      toast.success(data.message || "Developer invited successfully!");
+      toast.success(data.message || "Developer created successfully!");
       setIsModalOpen(false);
+      setCreatedCredentials({ email: inviteEmail, tempPassword: data.tempPassword });
       setInviteName("");
       setInviteEmail("");
-      
+
       // Reload list
       fetchDevelopers();
     } catch (error) {
@@ -88,7 +91,7 @@ export default function AdminDevelopersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Developers</h1>
           <p className="text-muted-foreground">Manage your development team members.</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>Invite Developer</Button>
+        <Button onClick={() => setIsModalOpen(true)}>Add Developer</Button>
       </div>
 
       <Card>
@@ -132,7 +135,7 @@ export default function AdminDevelopersPage() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-md border border-border bg-surface p-6 relative rounded-none">
-            <h2 className="text-xl font-bold tracking-tight mb-4">Invite Developer</h2>
+            <h2 className="text-xl font-bold tracking-tight mb-4">Add Developer</h2>
             <form onSubmit={handleInvite} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-sm font-medium">Name</label>
@@ -170,12 +173,20 @@ export default function AdminDevelopersPage() {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isInviting}>
-                  {isInviting ? "Inviting..." : "Send Invite"}
+                  {isInviting ? "Creating..." : "Create Developer"}
                 </Button>
               </div>
             </form>
           </div>
         </div>
+      )}
+
+      {createdCredentials && (
+        <CredentialsModal
+          email={createdCredentials.email}
+          tempPassword={createdCredentials.tempPassword}
+          onClose={() => setCreatedCredentials(null)}
+        />
       )}
     </div>
   );

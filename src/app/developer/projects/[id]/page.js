@@ -5,6 +5,7 @@ import { doc, getDoc, collection, getDocs, query, orderBy } from "firebase/fires
 import { db, auth } from "@/lib/firebase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
+import { MilestoneTracker } from "@/components/projects/MilestoneTracker";
 
 export default function DeveloperProjectManagePage({ params }) {
   const unwrappedParams = use(params);
@@ -24,6 +25,9 @@ export default function DeveloperProjectManagePage({ params }) {
   const [milestones, setMilestones] = useState([]);
   const [savingMilestones, setSavingMilestones] = useState(false);
 
+  const [nextStep, setNextStep] = useState("");
+  const [savingNextStep, setSavingNextStep] = useState(false);
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -34,6 +38,7 @@ export default function DeveloperProjectManagePage({ params }) {
           setProject({ id: docSnap.id, ...data });
           setProgress(data.progress || 0);
           setMilestones(data.milestones || []);
+          setNextStep(data.nextStep || "");
         }
 
         const updatesSnap = await getDocs(query(collection(db, `projects/${id}/updates`), orderBy("createdAt", "desc")));
@@ -93,6 +98,27 @@ export default function DeveloperProjectManagePage({ params }) {
     }
   };
 
+  const handleSaveNextStep = async () => {
+    if (savingNextStep) return;
+    setSavingNextStep(true);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/projects/${id}/progress`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ nextStep })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      toast.success("Next step updated");
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSavingNextStep(false);
+    }
+  };
+
   const handleSaveMilestones = async () => {
     if (savingMilestones) return;
     setSavingMilestones(true);
@@ -141,14 +167,17 @@ export default function DeveloperProjectManagePage({ params }) {
               <h2 className="text-xl font-semibold">Update Milestones</h2>
               <Button size="sm" onClick={handleSaveMilestones} disabled={savingMilestones}>Save</Button>
             </div>
+            <div className="mb-4 pb-4 border-b border-border overflow-x-auto">
+              <MilestoneTracker milestones={milestones} />
+            </div>
             <div className="space-y-3">
               {!milestones || milestones.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No milestones defined.</p>
               ) : (
                 milestones.map((m, i) => (
-                  <div key={m.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 gap-2 border border-border bg-background rounded-sm">
+                  <div key={m.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 gap-2 border border-border bg-background rounded-none">
                     <span className="text-sm font-medium">{m.title}</span>
-                    <select className="border border-input rounded-sm px-2 py-1 text-xs bg-background"
+                    <select className="border border-input rounded-none px-2 py-1 text-xs bg-background"
                       value={m.status} onChange={e => {
                         const newM = [...milestones];
                         newM[i].status = e.target.value;
@@ -166,14 +195,26 @@ export default function DeveloperProjectManagePage({ params }) {
           </div>
 
           <div className="bg-surface border border-border p-6 rounded-none">
+            <h2 className="text-xl font-semibold mb-4">Next Step / Blocker</h2>
+            <div className="space-y-3">
+              <textarea className="w-full min-h-20 border border-input rounded-none p-3 text-sm focus:outline-none focus:ring-1 focus:ring-foreground bg-background"
+                placeholder="e.g. Waiting for client to provide final images."
+                value={nextStep} onChange={e => setNextStep(e.target.value)} />
+              <Button className="w-full" onClick={handleSaveNextStep} disabled={savingNextStep}>
+                {savingNextStep ? 'Saving...' : 'Save Next Step'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="bg-surface border border-border p-6 rounded-none">
             <h2 className="text-xl font-semibold mb-4">Post Update</h2>
             <form onSubmit={handlePostUpdate} className="space-y-4">
-              <textarea required className="w-full min-h-[100px] border border-input rounded-sm p-3 text-sm focus:outline-none focus:ring-1 focus:ring-foreground bg-background"
+              <textarea required className="w-full min-h-[100px] border border-input rounded-none p-3 text-sm focus:outline-none focus:ring-1 focus:ring-foreground bg-background"
                 placeholder="Write your update or blocker here..."
                 value={updateContent} onChange={e => setUpdateContent(e.target.value)} />
               
               <div className="flex flex-col gap-3 mt-2">
-                <select className="w-full border border-input rounded-sm p-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground"
+                <select className="w-full border border-input rounded-none p-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground"
                   value={updateVisibility} onChange={e => setUpdateVisibility(e.target.value)}>
                   <option value="internal">Internal Note (Hidden from client)</option>
                   <option value="client">Client Update (Visible to client)</option>
@@ -194,7 +235,7 @@ export default function DeveloperProjectManagePage({ params }) {
                 <p className="text-sm text-muted-foreground">No scope defined.</p>
               ) : (
                 project.scope.map(s => (
-                  <div key={s.id} className="flex justify-between items-center p-3 border border-border bg-background rounded-sm">
+                  <div key={s.id} className="flex justify-between items-center p-3 border border-border bg-background rounded-none">
                     <span className={`text-sm ${s.status === 'excluded' ? 'line-through text-muted-foreground' : ''}`}>{s.title}</span>
                     <span className="text-xs font-semibold uppercase">{s.status}</span>
                   </div>
@@ -208,10 +249,10 @@ export default function DeveloperProjectManagePage({ params }) {
             <div className="space-y-4">
               {updates.length === 0 && <p className="text-sm text-muted-foreground">No updates yet.</p>}
               {updates.map(upd => (
-                <div key={upd.id} className="p-4 border border-border rounded-sm bg-background">
+                <div key={upd.id} className="p-4 border border-border rounded-none bg-background">
                   <div className="flex justify-between items-start mb-2 text-xs text-muted-foreground">
                     <span className="capitalize">{upd.authorRole}</span>
-                    <span className={`px-2 py-1 rounded-sm uppercase tracking-wider font-semibold ${upd.visibility === 'client' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' : 'bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-gray-300'}`}>
+                    <span className={`px-2 py-1 rounded-none uppercase tracking-wider font-semibold ${upd.visibility === 'client' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' : 'bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-gray-300'}`}>
                       {upd.visibility}
                     </span>
                   </div>

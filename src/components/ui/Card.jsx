@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils/styles";
 
 export function Card({ className, children, ...props }) {
   return (
-    <div className={cn("border border-border bg-card text-card-foreground rounded-none", className)} {...props}>
+    <div className={cn("border border-border bg-surface text-foreground rounded-none", className)} {...props}>
       {children}
     </div>
   );

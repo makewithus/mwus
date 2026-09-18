@@ -8,10 +8,13 @@ export async function PATCH(request, { params }) {
   try {
     const user = await getAuthenticatedServerUser();
     const { id } = await params;
-    const { progress } = await request.json();
+    const { progress, nextStep } = await request.json();
 
-    if (progress === undefined || progress < 0 || progress > 100) {
+    if (progress !== undefined && (progress < 0 || progress > 100)) {
       return NextResponse.json({ error: "Invalid progress value. Must be between 0 and 100." }, { status: 400 });
+    }
+    if (progress === undefined && nextStep === undefined) {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
     }
 
     const projectRef = adminDb.collection("projects").doc(id);
@@ -33,17 +36,25 @@ export async function PATCH(request, { params }) {
     }
 
     const previousProgress = projectData.progress || 0;
-    
-    if (progress === previousProgress) {
-      return NextResponse.json({ message: "No change in progress" });
+    const previousNextStep = projectData.nextStep || "";
+
+    const progressChanged = progress !== undefined && progress !== previousProgress;
+    const nextStepChanged = nextStep !== undefined && nextStep !== previousNextStep;
+
+    if (!progressChanged && !nextStepChanged) {
+      return NextResponse.json({ message: "No changes detected" });
     }
 
     const batch = adminDb.batch();
-    
-    batch.update(projectRef, {
-      progress,
-      updatedAt: new Date().toISOString()
-    });
+    const updates = { updatedAt: new Date().toISOString() };
+    if (progressChanged) updates.progress = progress;
+    if (nextStepChanged) updates.nextStep = nextStep;
+
+    batch.update(projectRef, updates);
+
+    const descriptionParts = [];
+    if (progressChanged) descriptionParts.push(`Progress: ${previousProgress}% → ${progress}%`);
+    if (nextStepChanged) descriptionParts.push(`Next step: "${nextStep}"`);
 
     // Audit Log
     createAuditLog(batch, {
@@ -55,27 +66,26 @@ export async function PATCH(request, { params }) {
       entityId: id,
       clientId: projectData.clientId,
       projectId: id,
-      previousValue: { progress: previousProgress },
-      newValue: { progress },
-      description: `Updated project progress from ${previousProgress}% to ${progress}%`
+      previousValue: { progress: previousProgress, nextStep: previousNextStep },
+      newValue: { progress: progressChanged ? progress : previousProgress, nextStep: nextStepChanged ? nextStep : previousNextStep },
+      description: descriptionParts.join(", ")
     });
 
-    // Timeline Event
-    // We only create a timeline event if progress crosses a major threshold (e.g. 25, 50, 75, 100) or just unconditionally.
-    // The requirement says "Updates Progress". Let's create an event.
-    createTimelineEvent(batch, id, {
-      type: "PROGRESS_UPDATE",
-      title: "Progress Updated",
-      description: `Project progress has been updated to ${progress}%.`,
-      actorId: user.uid,
-      actorName: user.name || user.email,
-      actorRole: user.role,
-      metadata: { oldProgress: previousProgress, newProgress: progress }
-    });
+    if (progressChanged) {
+      createTimelineEvent(batch, id, {
+        type: "PROGRESS_UPDATE",
+        title: "Progress Updated",
+        description: `Project progress has been updated to ${progress}%.`,
+        actorId: user.uid,
+        actorName: user.name || user.email,
+        actorRole: user.role,
+        metadata: { oldProgress: previousProgress, newProgress: progress }
+      });
+    }
 
     await batch.commit();
 
-    return NextResponse.json({ message: "Progress updated successfully" });
+    return NextResponse.json({ message: "Updated successfully" });
   } catch (error) {
     console.error("Error updating progress:", error);
     if (error.message.startsWith("Forbidden") || error.message.startsWith("Unauthorized")) {

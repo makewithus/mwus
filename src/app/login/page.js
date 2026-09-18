@@ -12,17 +12,27 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // True once Firebase auth has confirmed the credentials; we stay in a loading
+  // state through this until the user's role resolves and we redirect, so the
+  // form never looks "done" while it's actually still waiting on that lookup.
+  const [isSignedIn, setIsSignedIn] = useState(false);
   const router = useRouter();
   const { login, user, loading } = useAuth();
 
   useEffect(() => {
     if (!loading && user) {
-      if (user.role === "admin") router.push("/admin/dashboard");
-      else if (user.role === "developer") router.push("/developer/dashboard");
-      else if (user.role === "client") router.push("/client/dashboard");
-      else router.push("/unauthorized");
+      if (user.role === "admin") router.replace("/admin/dashboard");
+      else if (user.role === "developer") router.replace("/developer/dashboard");
+      else if (user.role === "client") router.replace("/client/dashboard");
+      else router.replace("/unauthorized");
+    } else if (isSignedIn && !loading && !user) {
+      // Sign-in succeeded but no valid account profile could be loaded
+      // (AuthContext already signed the session back out) - don't hang forever.
+      setIsSignedIn(false);
+      setIsLoading(false);
+      toast.error("Unable to load your account. Please contact an admin.");
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, isSignedIn]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,15 +40,20 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success("Successfully logged in!");
+      setIsSignedIn(true);
+      // Keep isLoading true - the effect above redirects once the role resolves.
     } catch (err) {
       console.error(err);
       toast.error(err.message || "Invalid email or password. Please try again.");
-    } finally {
       setIsLoading(false);
     }
   };
 
-  if (loading) {
+  // Only the true initial bootstrap check should show the full-page loader.
+  // Once a submit is in flight (isSignedIn), `loading` also flips true again while
+  // the profile lookup resolves - the submit button's own "Redirecting..." label
+  // already covers that, so don't blank out the form underneath it.
+  if (loading && !isSignedIn) {
     return <div className="flex h-screen items-center justify-center bg-background">Loading...</div>;
   }
 
@@ -119,7 +134,7 @@ export default function LoginPage() {
               disabled={isLoading}
               className="flex w-full justify-center items-center h-11 rounded-none bg-foreground px-4 py-2 text-sm font-medium text-background hover:bg-foreground/90 focus:outline-none focus:ring-2 focus:ring-foreground focus:ring-offset-2 disabled:opacity-50 transition-colors"
             >
-              {isLoading ? "Signing in..." : "Sign in to account"}
+              {isSignedIn ? "Redirecting..." : isLoading ? "Signing in..." : "Sign in to account"}
             </button>
           </form>
         </div>

@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // Auth Helpers
     function isAuthenticated() {
       return request.auth != null;
@@ -18,17 +18,20 @@ service cloud.firestore {
     function isClient() {
       return isAuthenticated() && getUserData().role == 'client';
     }
-    
+
     match /users/{userId} {
       allow read: if isAdmin() || request.auth.uid == userId;
       allow write: if false; // Must use API for audit
     }
-    
+
     match /clients/{clientId} {
       allow read: if isAdmin() || (isClient() && getUserData().clientId == clientId);
       allow write: if false; // Must use API for audit
     }
-    
+
+    // Scope and milestones are stored as array fields on the project document itself
+    // (not subcollections) - there is no separate scope/{id} or milestones/{id} path to
+    // secure here. They're covered by the /projects/{projectId} read rule below.
     match /projects/{projectId} {
       function isAssignedDeveloper() {
         return isDeveloper() && request.auth.uid in resource.data.developerIds;
@@ -36,31 +39,42 @@ service cloud.firestore {
       function isOwnClientProject() {
         return isClient() && getUserData().clientId == resource.data.clientId;
       }
-      
+
       allow read: if isAdmin() || isAssignedDeveloper() || isOwnClientProject();
       allow write: if false; // Using Server Actions / API for developer updates to ensure audit trails
-      
-      match /scope/{scopeId} {
-        allow read: if isAdmin() || isAssignedDeveloper() || (isOwnClientProject() && resource.data.clientVisible == true);
-        allow write: if false; // Must use API
-      }
-      
-      match /milestones/{milestoneId} {
-        allow read: if isAdmin() || isAssignedDeveloper() || isOwnClientProject();
-        allow write: if false; // Must use API
-      }
-      
+
+      // Nested matches get their own `resource` (the subcollection document), which has
+      // no clientId/developerIds of its own - so ownership must be checked against the
+      // PARENT project doc, fetched explicitly, not via the outer match's functions.
       match /updates/{updateId} {
-        allow read: if isAdmin() || isAssignedDeveloper() || (isOwnClientProject() && resource.data.visibility == 'client');
-        allow write: if false; 
+        function parentProject() {
+          return get(/databases/$(database)/documents/projects/$(projectId)).data;
+        }
+        function isAssignedDeveloperOnParent() {
+          return isDeveloper() && request.auth.uid in parentProject().developerIds;
+        }
+        function isOwnClientProjectOnParent() {
+          return isClient() && getUserData().clientId == parentProject().clientId;
+        }
+        allow read: if isAdmin() || isAssignedDeveloperOnParent() || (isOwnClientProjectOnParent() && resource.data.visibility == 'client');
+        allow write: if false;
       }
-      
+
       match /timeline/{timelineId} {
-        allow read: if isAdmin() || isAssignedDeveloper() || isOwnClientProject();
-        allow write: if false; 
+        function parentProject() {
+          return get(/databases/$(database)/documents/projects/$(projectId)).data;
+        }
+        function isAssignedDeveloperOnParent() {
+          return isDeveloper() && request.auth.uid in parentProject().developerIds;
+        }
+        function isOwnClientProjectOnParent() {
+          return isClient() && getUserData().clientId == parentProject().clientId;
+        }
+        allow read: if isAdmin() || isAssignedDeveloperOnParent() || isOwnClientProjectOnParent();
+        allow write: if false;
       }
     }
-    
+
     match /auditLogs/{auditId} {
       allow read: if isAdmin();
       allow write: if false;

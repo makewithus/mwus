@@ -18,12 +18,17 @@ export default function AdminProjectsPage() {
   
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivingId, setArchivingId] = useState(null);
+  const initialFormData = {
     name: "",
     clientId: "",
     description: "",
+    startDate: "",
+    expectedDeliveryDate: "",
     developerIds: [] // Will hold array of dev UIDs
-  });
+  };
+  const [formData, setFormData] = useState(initialFormData);
 
   const fetchData = async () => {
     try {
@@ -95,7 +100,7 @@ export default function AdminProjectsPage() {
 
       toast.success("Project created successfully");
       setShowModal(false);
-      setFormData({ name: "", clientId: "", description: "", developerIds: [] });
+      setFormData(initialFormData);
       fetchData();
     } catch (error) {
       toast.error(error.message);
@@ -103,6 +108,31 @@ export default function AdminProjectsPage() {
       setSubmitting(false);
     }
   };
+
+  const handleToggleArchive = async (project) => {
+    if (archivingId) return;
+    const nextArchived = !project.archived;
+    setArchivingId(project.id);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ archived: nextArchived }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update project");
+
+      toast.success(nextArchived ? "Project archived" : "Project restored");
+      fetchData();
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setArchivingId(null);
+    }
+  };
+
+  const visibleProjects = projects.filter(p => showArchived || !p.archived);
 
   return (
     <div className="p-8 w-full max-w-7xl mx-auto space-y-6">
@@ -113,6 +143,11 @@ export default function AdminProjectsPage() {
         </div>
         <Button onClick={() => setShowModal(true)}>New Project</Button>
       </div>
+
+      <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer w-fit">
+        <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} />
+        Show archived projects
+      </label>
 
       <Card>
         <CardContent className="p-0">
@@ -131,14 +166,17 @@ export default function AdminProjectsPage() {
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center">Loading projects...</TableCell>
                 </TableRow>
-              ) : projects.length === 0 ? (
+              ) : visibleProjects.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center">No projects found.</TableCell>
                 </TableRow>
               ) : (
-                projects.map((project) => (
+                visibleProjects.map((project) => (
                   <TableRow key={project.id}>
-                    <TableCell className="font-medium">{project.name}</TableCell>
+                    <TableCell className="font-medium">
+                      {project.name}
+                      {project.archived && <Badge variant="secondary" className="ml-2 text-[10px] uppercase">Archived</Badge>}
+                    </TableCell>
                     <TableCell className="capitalize">{project.status?.replace('_', ' ')}</TableCell>
                     <TableCell>
                       <Badge variant={getHealthBadgeVariant(project.health)}>
@@ -148,18 +186,26 @@ export default function AdminProjectsPage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="w-full bg-secondary h-2 flex-1 rounded-full overflow-hidden">
-                          <div 
-                            className="bg-foreground h-full rounded-full" 
+                          <div
+                            className="bg-foreground h-full rounded-full"
                             style={{ width: `${project.progress || 0}%` }}
                           />
                         </div>
                         <span className="text-xs text-muted-foreground">{project.progress || 0}%</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right space-x-2">
                       <Link href={`/admin/projects/${project.id}`}>
                         <Button variant="outline" size="sm">Manage</Button>
                       </Link>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={archivingId === project.id}
+                        onClick={() => handleToggleArchive(project)}
+                      >
+                        {archivingId === project.id ? '...' : project.archived ? 'Restore' : 'Archive'}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -177,13 +223,13 @@ export default function AdminProjectsPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Project Name *</label>
-                <input required type="text" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
+                <input required type="text" className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
                   value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
               </div>
               
               <div>
                 <label className="block text-sm font-medium mb-1">Client *</label>
-                <select required className="w-full flex h-10 rounded-sm border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                <select required className="w-full flex h-10 rounded-none border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   value={formData.clientId} onChange={e => setFormData({...formData, clientId: e.target.value})}>
                   <option value="">Select a Client...</option>
                   {clients.map(c => (
@@ -194,13 +240,26 @@ export default function AdminProjectsPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1">Description</label>
-                <textarea className="w-full flex min-h-[80px] rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
+                <textarea className="w-full flex min-h-20 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Start Date</label>
+                  <input type="date" className="w-full flex h-10 rounded-none border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Expected Delivery</label>
+                  <input type="date" className="w-full flex h-10 rounded-none border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={formData.expectedDeliveryDate} onChange={e => setFormData({...formData, expectedDeliveryDate: e.target.value})} />
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">Assign Developers</label>
-                <div className="border border-input rounded-sm p-2 space-y-2 max-h-32 overflow-y-auto">
+                <div className="border border-input rounded-none p-2 space-y-2 max-h-32 overflow-y-auto">
                   {developers.length === 0 && <span className="text-sm text-muted-foreground">No developers found.</span>}
                   {developers.map(dev => (
                     <label key={dev.id} className="flex items-center gap-2 text-sm cursor-pointer">

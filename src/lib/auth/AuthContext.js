@@ -34,6 +34,11 @@ export function AuthProvider({ children }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        // Mark resolution in-progress for this event too, not just the initial mount -
+        // otherwise `loading` reads as "done" during the async profile lookup below,
+        // and callers watching (!loading && !user) to detect a genuine failure see a
+        // false positive for the ordinary gap between sign-in and profile fetch.
+        setLoading(true);
         if (isSessionExpired()) {
           window.localStorage.removeItem(SESSION_STORAGE_KEY);
           setUser(null);
@@ -92,10 +97,20 @@ export function AuthProvider({ children }) {
     if (!auth) throw new Error("Firebase API key missing from configuration.");
     const { setPersistence, browserSessionPersistence } = await import("firebase/auth");
     await setPersistence(auth, browserSessionPersistence);
-    const result = await signInWithEmailAndPassword(auth, email, password);
+    // The session-start timestamp must exist BEFORE signInWithEmailAndPassword is called:
+    // internally, Firebase awaits _updateCurrentUser() (which synchronously fires our
+    // onAuthStateChanged listener) before its own promise resolves. So the listener's
+    // isSessionExpired() check runs before this function's next line ever would - writing
+    // the timestamp after the await is too late and reads as "expired" on every first
+    // attempt, forcing an immediate sign-out that only a second attempt would outrun.
     window.localStorage.setItem(SESSION_STORAGE_KEY, String(Date.now()));
     expiredToastShown.current = false;
-    return result;
+    try {
+      return await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+      throw error;
+    }
   };
 
   const logout = async () => {

@@ -12,7 +12,9 @@
   
   --color-border: var(--border);
   --color-surface: var(--surface);
-  
+  --color-input: var(--border);
+  --color-ring: var(--foreground);
+
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
 }

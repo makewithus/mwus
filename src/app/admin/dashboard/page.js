@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getClients } from "@/lib/services/clients";
 import { getProjects } from "@/lib/services/projects";
+import { toast } from "sonner";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -42,6 +43,7 @@ export default function AdminDashboard() {
         });
       } catch (error) {
         console.error("Error loading stats:", error);
+        toast.error("Failed to load dashboard stats");
       } finally {
         setLoading(false);
       }
@@ -56,7 +58,7 @@ export default function AdminDashboard() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-            <div key={i} className="p-6 bg-surface border border-border rounded-sm animate-pulse h-28" />
+            <div key={i} className="p-6 bg-surface border border-border rounded-none animate-pulse h-28" />
           ))}
         </div>
       ) : (
@@ -77,7 +79,7 @@ export default function AdminDashboard() {
 
 function StatCard({ title, value }) {
   return (
-    <div className="p-6 bg-surface border border-border rounded-sm">
+    <div className="p-6 bg-surface border border-border rounded-none">
       <div className="text-sm font-medium text-muted-foreground mb-2">{title}</div>
       <div className="text-3xl font-semibold">{value}</div>
     </div>

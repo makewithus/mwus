@@ -18,17 +18,39 @@ export async function PATCH(request, { params }) {
     }
 
     const previousData = projectSnap.data();
-    const allowedFields = ["status", "health", "developerIds", "expectedDeliveryDate", "description", "name"];
-    
+    const allowedFields = ["status", "health", "developerIds", "startDate", "expectedDeliveryDate", "description", "name", "archived"];
+
     let updates = {};
     let changesMade = false;
     let descriptionParts = [];
+
+    // Resolve developer names for a readable "Unassigned -> Rahul" style description,
+    // matching the audit log examples in the functional doc, instead of raw UIDs.
+    let developerNamesById = null;
+    if (data.developerIds !== undefined && JSON.stringify(data.developerIds) !== JSON.stringify(previousData.developerIds || [])) {
+      const allDevIds = [...new Set([...(previousData.developerIds || []), ...(data.developerIds || [])])];
+      const devDocs = await Promise.all(allDevIds.map(uid => adminDb.collection("users").doc(uid).get()));
+      developerNamesById = {};
+      devDocs.forEach(d => { if (d.exists) developerNamesById[d.id] = d.data().name || d.data().email; });
+    }
 
     for (const field of allowedFields) {
       if (data[field] !== undefined && JSON.stringify(data[field]) !== JSON.stringify(previousData[field])) {
         updates[field] = data[field];
         changesMade = true;
-        descriptionParts.push(`Changed ${field}`);
+
+        if (field === "developerIds") {
+          const oldNames = (previousData.developerIds || []).map(id => developerNamesById[id] || id);
+          const newNames = (data.developerIds || []).map(id => developerNamesById[id] || id);
+          descriptionParts.push(`Developer assignment: ${oldNames.length ? oldNames.join(", ") : "Unassigned"} → ${newNames.length ? newNames.join(", ") : "Unassigned"}`);
+        } else if (field === "expectedDeliveryDate") {
+          const fmt = (d) => d ? new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }) : "Not set";
+          descriptionParts.push(`Delivery date: ${fmt(previousData.expectedDeliveryDate)} → ${fmt(data.expectedDeliveryDate)}`);
+        } else if (field === "archived") {
+          descriptionParts.push(data.archived ? "Project archived" : "Project restored");
+        } else {
+          descriptionParts.push(`Changed ${field}`);
+        }
       }
     }
 
@@ -78,6 +100,20 @@ export async function PATCH(request, { params }) {
         actorName: adminUser.name || adminUser.email,
         actorRole: "admin",
         metadata: { oldHealth: previousData.health, newHealth: updates.health }
+      });
+    }
+
+    if (updates.developerIds !== undefined) {
+      const oldNames = (previousData.developerIds || []).map(id => developerNamesById[id] || id);
+      const newNames = (updates.developerIds || []).map(id => developerNamesById[id] || id);
+      createTimelineEvent(batch, id, {
+        type: "DEVELOPER_ASSIGNED",
+        title: "Developer Assignment Updated",
+        description: `${oldNames.length ? oldNames.join(", ") : "Unassigned"} → ${newNames.length ? newNames.join(", ") : "Unassigned"}`,
+        actorId: adminUser.uid,
+        actorName: adminUser.name || adminUser.email,
+        actorRole: "admin",
+        metadata: { oldDeveloperIds: previousData.developerIds || [], newDeveloperIds: updates.developerIds }
       });
     }
 

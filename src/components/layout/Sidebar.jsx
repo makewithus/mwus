@@ -38,7 +38,7 @@ export function Sidebar({ items = [], title = "Portal", isOpen, setIsOpen }) {
                 href={item.href}
                 onClick={() => setIsOpen && setIsOpen(false)}
                 className={cn(
-                  "flex items-center px-3 py-2 text-sm font-medium rounded-sm transition-colors",
+                  "flex items-center px-3 py-2 text-sm font-medium rounded-none transition-colors",
                   isActive
                     ? "bg-foreground text-background"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"

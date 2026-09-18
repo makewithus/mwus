@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { requireAdmin } from "@/lib/auth/server";
 import { createAuditLog } from "@/lib/services/audit";
-import nodemailer from "nodemailer";
 
 export async function POST(request) {
   try {
@@ -82,40 +81,14 @@ export async function POST(request) {
       throw error;
     }
 
-    // 4. Email the client their portal access link. This must never fail the request —
-    // the account already exists at this point, and the admin can always resend/reset later.
-    try {
-      const resetLink = await adminAuth.generatePasswordResetLink(data.email);
-      if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || "smtp.gmail.com",
-          port: process.env.SMTP_PORT || 587,
-          secure: process.env.SMTP_PORT == 465,
-          auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-        });
-        await transporter.sendMail({
-          from: process.env.SMTP_FROM || '"MakeWithUs Portal" <noreply@makewithus.com>',
-          to: data.email,
-          subject: "Your MakeWithUs Client Portal access",
-          html: `
-            <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-              <h2>Welcome to MakeWithUs!</h2>
-              <p>Hi ${data.contactPerson},</p>
-              <p>A client portal account has been set up for ${clientData.companyName}. You can track your project's progress, scope and updates there.</p>
-              <p>Please click the link below to set your password and access your dashboard:</p>
-              <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; margin-top: 10px;">Set Password</a>
-              <p style="margin-top: 20px; font-size: 12px; color: #666;">If you have any questions, please contact the admin team.</p>
-            </div>
-          `,
-        });
-      } else {
-        console.warn("SMTP credentials missing. Client invite link generated but not emailed:", resetLink);
-      }
-    } catch (emailError) {
-      console.error("Client created, but invite email failed to send:", emailError);
-    }
-
-    return NextResponse.json({ message: "Client created successfully", id: clientRef.id, client: clientData });
+    // Per V1 scope (no email automation): the temp password is returned directly to the
+    // admin to hand off out-of-band (verbally, chat, etc.), not emailed automatically.
+    return NextResponse.json({
+      message: "Client created successfully",
+      id: clientRef.id,
+      client: clientData,
+      tempPassword: randomPassword,
+    });
   } catch (error) {
     console.error("Error creating client:", error);
     if (error.message.startsWith("Forbidden") || error.message.startsWith("Unauthorized")) {

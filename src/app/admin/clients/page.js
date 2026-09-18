@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { CredentialsModal } from "@/components/ui/CredentialsModal";
 import { toast } from "sonner";
 
 export default function AdminClientsPage() {
@@ -14,7 +15,12 @@ export default function AdminClientsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  
+  const [createdCredentials, setCreatedCredentials] = useState(null);
+  const [editingClient, setEditingClient] = useState(null);
+  const [editFormData, setEditFormData] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [archivingId, setArchivingId] = useState(null);
+
   const initialFormData = {
     companyName: "",
     contactPerson: "",
@@ -70,14 +76,75 @@ export default function AdminClientsPage() {
         throw new Error(data.error || "Failed to create client");
       }
 
-      toast.success("Client created successfully. A portal access email has been sent.");
+      toast.success("Client created successfully");
       setShowModal(false);
       setFormData(initialFormData);
+      setCreatedCredentials({ email: formData.email, tempPassword: data.tempPassword });
       fetchClients();
     } catch (error) {
       toast.error(error.message);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openEdit = (client) => {
+    setEditingClient(client);
+    setEditFormData({
+      companyName: client.companyName || "",
+      contactPerson: client.contactPerson || "",
+      phone: client.phone || "",
+      location: client.location || "",
+      website: client.website || "",
+      notes: client.notes || "",
+      clientSource: client.clientSource || "",
+    });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (savingEdit) return;
+    setSavingEdit(true);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/clients/${editingClient.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify(editFormData),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update client");
+
+      toast.success("Client updated successfully");
+      setEditingClient(null);
+      fetchClients();
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleToggleArchive = async (client) => {
+    if (archivingId) return;
+    const nextStatus = client.status === "archived" ? "active" : "archived";
+    setArchivingId(client.id);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update client");
+
+      toast.success(nextStatus === "archived" ? "Client archived" : "Client restored");
+      fetchClients();
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setArchivingId(null);
     }
   };
 
@@ -123,8 +190,16 @@ export default function AdminClientsPage() {
                         {client.status || 'active'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" onClick={() => toast.info("Client details page coming soon")}>View</Button>
+                    <TableCell className="text-right space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => openEdit(client)}>Edit</Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={archivingId === client.id}
+                        onClick={() => handleToggleArchive(client)}
+                      >
+                        {archivingId === client.id ? '...' : client.status === 'archived' ? 'Restore' : 'Archive'}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -142,12 +217,12 @@ export default function AdminClientsPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Company Name *</label>
-                <input required type="text" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
+                <input required type="text" className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
                   value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Contact Person *</label>
-                <input required type="text" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
+                <input required type="text" className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
                   value={formData.contactPerson} onChange={e => {
                     const val = e.target.value.replace(/[^A-Za-z\s]/g, '');
                     if (e.target.value !== val) e.target.value = val;
@@ -156,12 +231,12 @@ export default function AdminClientsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Email *</label>
-                <input required type="email" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
+                <input required type="email" className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
                   value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Phone *</label>
-                <input required type="tel" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                <input required type="tel" className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   value={formData.phone} onChange={e => {
                     const val = e.target.value.replace(/[^0-9+\-\s()]/g, '');
                     if (e.target.value !== val) e.target.value = val;
@@ -170,22 +245,22 @@ export default function AdminClientsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Country / Location *</label>
-                <input required type="text" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                <input required type="text" className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Website</label>
-                <input type="url" placeholder="https://" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                <input type="url" placeholder="https://" className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   value={formData.website} onChange={e => setFormData({...formData, website: e.target.value})} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Client Source</label>
-                <input type="text" placeholder="Referral, outbound, etc." className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                <input type="text" placeholder="Referral, outbound, etc." className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   value={formData.clientSource} onChange={e => setFormData({...formData, clientSource: e.target.value})} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Notes</label>
-                <textarea rows={2} className="w-full flex rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                <textarea rows={2} className="w-full flex rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
               </div>
               <div className="flex justify-end gap-2 pt-4">
@@ -195,6 +270,70 @@ export default function AdminClientsPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Edit Client Modal */}
+      {editingClient && editFormData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="bg-surface border border-border p-6 rounded-none w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">Edit Client</h2>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Company Name *</label>
+                <input required type="text" className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={editFormData.companyName} onChange={e => setEditFormData({...editFormData, companyName: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Contact Person *</label>
+                <input required type="text" className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={editFormData.contactPerson} onChange={e => setEditFormData({...editFormData, contactPerson: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input disabled type="email" className="w-full flex h-10 rounded-none border border-input bg-muted px-3 py-2 text-sm text-muted-foreground cursor-not-allowed"
+                  value={editingClient.email} />
+                <p className="text-xs text-muted-foreground mt-1">Login email can&apos;t be changed here - it&apos;s tied to the portal account.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Phone *</label>
+                <input required type="tel" className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={editFormData.phone} onChange={e => setEditFormData({...editFormData, phone: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Country / Location *</label>
+                <input required type="text" className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={editFormData.location} onChange={e => setEditFormData({...editFormData, location: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Website</label>
+                <input type="url" placeholder="https://" className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={editFormData.website} onChange={e => setEditFormData({...editFormData, website: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Client Source</label>
+                <input type="text" className="w-full flex h-10 rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={editFormData.clientSource} onChange={e => setEditFormData({...editFormData, clientSource: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <textarea rows={2} className="w-full flex rounded-none border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={editFormData.notes} onChange={e => setEditFormData({...editFormData, notes: e.target.value})} />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setEditingClient(null)}>Cancel</Button>
+                <Button type="submit" disabled={savingEdit}>{savingEdit ? 'Saving...' : 'Save Changes'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {createdCredentials && (
+        <CredentialsModal
+          email={createdCredentials.email}
+          tempPassword={createdCredentials.tempPassword}
+          onClose={() => setCreatedCredentials(null)}
+        />
       )}
     </div>
   );
