@@ -121,7 +121,7 @@ export default function AdminClientsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm">View</Button>
+                      <Button variant="outline" size="sm" onClick={() => toast.info("Client details page coming soon")}>View</Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -145,7 +145,11 @@ export default function AdminClientsPage() {
               <div>
                 <label className="block text-sm font-medium mb-1">Contact Person *</label>
                 <input required type="text" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
-                  value={formData.contactPerson} onChange={e => setFormData({...formData, contactPerson: e.target.value})} />
+                  value={formData.contactPerson} onChange={e => {
+                    const val = e.target.value.replace(/[^A-Za-z\s]/g, '');
+                    if (e.target.value !== val) e.target.value = val;
+                    setFormData({...formData, contactPerson: val});
+                  }} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Email *</label>
@@ -154,8 +158,12 @@ export default function AdminClientsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Phone</label>
-                <input type="text" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
-                  value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                <input type="tel" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
+                  value={formData.phone} onChange={e => {
+                    const val = e.target.value.replace(/[^0-9+\-\s()]/g, '');
+                    if (e.target.value !== val) e.target.value = val;
+                    setFormData({...formData, phone: val});
+                  }} />
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>

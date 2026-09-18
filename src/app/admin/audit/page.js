@@ -17,7 +17,7 @@ export default function AdminAuditPage() {
         const q = query(
           collection(db, "auditLogs"), 
           orderBy("timestamp", "desc"),
-          limit(100)
+          limit(20)
         );
         const snapshot = await getDocs(q);
         const logsData = snapshot.docs.map(doc => ({

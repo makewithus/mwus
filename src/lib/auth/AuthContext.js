@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from "firebase/auth";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase/client";
 
@@ -16,9 +16,6 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return;
     }
-
-    // Explicitly set persistence to session only immediately on mount
-    setPersistence(auth, browserSessionPersistence).catch(console.error);
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
@@ -50,8 +47,6 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     if (!auth) throw new Error("Firebase API key missing from configuration.");
-    // Ensure session persistence is set before login
-    await setPersistence(auth, browserSessionPersistence);
     return signInWithEmailAndPassword(auth, email, password);
   };
 

@@ -118,7 +118,7 @@ export default function AdminDevelopersPage() {
                     <TableCell>{dev.email}</TableCell>
                     <TableCell className="text-muted-foreground">--</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm">Manage</Button>
+                      <Button variant="outline" size="sm" onClick={() => toast.info("Developer management coming soon")}>Manage</Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -140,7 +140,11 @@ export default function AdminDevelopersPage() {
                   type="text"
                   required
                   value={inviteName}
-                  onChange={(e) => setInviteName(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^A-Za-z\s]/g, '');
+                    if (e.target.value !== val) e.target.value = val;
+                    setInviteName(val);
+                  }}
                   className="w-full h-10 border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-foreground transition-colors rounded-none"
                   placeholder="e.g. Jane Doe"
                 />

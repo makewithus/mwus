@@ -122,7 +122,7 @@ export default function AdminProjectManagePage({ params }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-6">
           <div className="border border-border bg-surface p-6">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
               <h2 className="text-xl font-semibold">Project Details</h2>
               <Button onClick={handleSaveProjectDetails} disabled={saving}>{saving ? 'Saving...' : 'Save Details'}</Button>
             </div>
@@ -170,13 +170,13 @@ export default function AdminProjectManagePage({ params }) {
 
         <div className="space-y-6">
           <div className="border border-border bg-surface p-6">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
               <h2 className="text-xl font-semibold">Project Scope</h2>
               <Button onClick={handleSaveScope}>Save Scope</Button>
             </div>
             <div className="space-y-3">
               {scope.map((item, i) => (
-                <div key={item.id} className="flex gap-2">
+                <div key={item.id} className="flex flex-col sm:flex-row gap-2">
                   <input className="flex-1 border border-input rounded-sm px-3 py-1 text-sm bg-transparent"
                     value={item.title} onChange={e => {
                       const newScope = [...scope];
@@ -195,20 +195,20 @@ export default function AdminProjectManagePage({ params }) {
                   <Button variant="outline" onClick={() => setScope(scope.filter((_, idx) => idx !== i))}>X</Button>
                 </div>
               ))}
-              <Button variant="outline" className="w-full" onClick={() => setScope([...scope, { id: crypto.randomUUID(), title: '', status: 'included' }])}>
+              <Button variant="outline" className="w-full" onClick={() => setScope([...scope, { id: Date.now().toString(36) + Math.random().toString(36).substring(2), title: '', status: 'included' }])}>
                 + Add Scope Item
               </Button>
             </div>
           </div>
 
           <div className="border border-border bg-surface p-6">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
               <h2 className="text-xl font-semibold">Milestones</h2>
               <Button onClick={handleSaveMilestones}>Save Milestones</Button>
             </div>
             <div className="space-y-3">
               {milestones.map((item, i) => (
-                <div key={item.id} className="flex gap-2">
+                <div key={item.id} className="flex flex-col sm:flex-row gap-2">
                   <input className="flex-1 border border-input rounded-sm px-3 py-1 text-sm bg-transparent"
                     value={item.title} onChange={e => {
                       const newM = [...milestones];
@@ -229,7 +229,7 @@ export default function AdminProjectManagePage({ params }) {
                   <Button variant="outline" onClick={() => setMilestones(milestones.filter((_, idx) => idx !== i))}>X</Button>
                 </div>
               ))}
-              <Button variant="outline" className="w-full" onClick={() => setMilestones([...milestones, { id: crypto.randomUUID(), title: '', status: 'upcoming' }])}>
+              <Button variant="outline" className="w-full" onClick={() => setMilestones([...milestones, { id: Date.now().toString(36) + Math.random().toString(36).substring(2), title: '', status: 'upcoming' }])}>
                 + Add Milestone
               </Button>
             </div>

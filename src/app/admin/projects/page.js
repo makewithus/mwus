@@ -27,20 +27,18 @@ export default function AdminProjectsPage() {
 
   const fetchData = async () => {
     try {
-      const q = query(collection(db, "projects"), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
+      const [snapshot, clientsSnapshot, devsSnapshot] = await Promise.all([
+        getDocs(query(collection(db, "projects"), orderBy("createdAt", "desc"))),
+        getDocs(query(collection(db, "clients"), orderBy("companyName"))),
+        getDocs(query(collection(db, "users"), where("role", "==", "developer")))
+      ]);
+      
       const projectsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
       setProjects(projectsData);
-
-      // Load clients for the dropdown
-      const clientsSnapshot = await getDocs(query(collection(db, "clients"), orderBy("companyName")));
       setClients(clientsSnapshot.docs.map(d => ({id: d.id, ...d.data()})));
-      
-      // Load developers for dropdown
-      const devsSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "developer")));
       setDevelopers(devsSnapshot.docs.map(d => ({id: d.id, ...d.data()})));
 
     } catch (error) {

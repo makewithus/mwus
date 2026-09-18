@@ -137,7 +137,7 @@ export default function DeveloperProjectManagePage({ params }) {
           </div>
 
           <div className="bg-surface border border-border p-6 rounded-none">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
               <h2 className="text-xl font-semibold">Update Milestones</h2>
               <Button size="sm" onClick={handleSaveMilestones} disabled={savingMilestones}>Save</Button>
             </div>
@@ -146,7 +146,7 @@ export default function DeveloperProjectManagePage({ params }) {
                 <p className="text-sm text-muted-foreground">No milestones defined.</p>
               ) : (
                 milestones.map((m, i) => (
-                  <div key={m.id} className="flex justify-between items-center p-3 border border-border bg-background rounded-sm">
+                  <div key={m.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 gap-2 border border-border bg-background rounded-sm">
                     <span className="text-sm font-medium">{m.title}</span>
                     <select className="border border-input rounded-sm px-2 py-1 text-xs bg-transparent"
                       value={m.status} onChange={e => {

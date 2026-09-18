@@ -2,10 +2,10 @@
 
 import { useAuth } from "@/lib/auth/AuthContext";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { User, LogOut } from "lucide-react";
+import { User, LogOut, Menu } from "lucide-react";
 import { toast } from "sonner";
 
-export function Header() {
+export function Header({ onMenuClick }) {
   const { user, logout } = useAuth();
 
   const handleLogout = async () => {
@@ -19,7 +19,10 @@ export function Header() {
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between gap-x-4 border-b border-border bg-surface px-4 sm:gap-x-6 sm:px-6 lg:px-8">
-      <div className="flex md:hidden items-center">
+      <div className="flex md:hidden items-center gap-4">
+        <button onClick={onMenuClick} className="p-2 -ml-2 text-muted-foreground hover:text-foreground">
+          <Menu className="h-5 w-5" />
+        </button>
         <img src="/images/mwulogo-removebg.png" alt="MakeWithUs Logo" className="h-8 w-auto object-contain brightness-0 dark:invert" />
       </div>
       <div className="flex items-center gap-x-4 lg:gap-x-6 ml-auto">
