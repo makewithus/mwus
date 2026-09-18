@@ -74,8 +74,8 @@ export default function AdminDevelopersPage() {
       setInviteName("");
       setInviteEmail("");
 
-      // Reload list
-      fetchDevelopers();
+      // Use the record the API already returned instead of re-querying Firestore.
+      setDevelopers(prev => [{ id: data.id, ...data.developer }, ...prev]);
     } catch (error) {
       console.error("Invite error:", error);
       toast.error(error.message);

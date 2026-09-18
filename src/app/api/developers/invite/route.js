@@ -36,15 +36,17 @@ export async function POST(request) {
       throw error;
     }
 
+    const developerData = {
+      email,
+      name,
+      role: "developer",
+      createdAt: new Date().toISOString(),
+      status: "active",
+    };
+
     try {
       const batch = adminDb.batch();
-      batch.set(adminDb.collection("users").doc(userRecord.uid), {
-        email,
-        name,
-        role: "developer",
-        createdAt: new Date().toISOString(),
-        status: "active",
-      });
+      batch.set(adminDb.collection("users").doc(userRecord.uid), developerData);
       createAuditLog(batch, {
         actorId: adminUser.uid,
         actorName: adminUser.name || adminUser.email,
@@ -65,6 +67,8 @@ export async function POST(request) {
     return NextResponse.json({
       message: "Developer created successfully.",
       tempPassword: randomPassword,
+      id: userRecord.uid,
+      developer: developerData,
     });
   } catch (error) {
     console.error("Error creating developer:", error);

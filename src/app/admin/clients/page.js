@@ -80,7 +80,9 @@ export default function AdminClientsPage() {
       setShowModal(false);
       setFormData(initialFormData);
       setCreatedCredentials({ email: formData.email, tempPassword: data.tempPassword });
-      fetchClients();
+      // Use the record the API already returned instead of re-querying Firestore -
+      // the table updates the instant the request completes, not after a second round trip.
+      setClients(prev => [{ id: data.id, ...data.client }, ...prev]);
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -116,8 +118,8 @@ export default function AdminClientsPage() {
       if (!res.ok) throw new Error(data.error || "Failed to update client");
 
       toast.success("Client updated successfully");
+      setClients(prev => prev.map(c => c.id === editingClient.id ? { ...c, ...editFormData } : c));
       setEditingClient(null);
-      fetchClients();
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -140,7 +142,7 @@ export default function AdminClientsPage() {
       if (!res.ok) throw new Error(data.error || "Failed to update client");
 
       toast.success(nextStatus === "archived" ? "Client archived" : "Client restored");
-      fetchClients();
+      setClients(prev => prev.map(c => c.id === client.id ? { ...c, status: nextStatus } : c));
     } catch (error) {
       toast.error(error.message);
     } finally {
