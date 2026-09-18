@@ -47,6 +47,8 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     if (!auth) throw new Error("Firebase API key missing from configuration.");
+    const { setPersistence, browserSessionPersistence } = await import("firebase/auth");
+    await setPersistence(auth, browserSessionPersistence);
     return signInWithEmailAndPassword(auth, email, password);
   };
 
