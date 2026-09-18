@@ -18,7 +18,7 @@ export async function getAuthenticatedServerUser() {
   try {
     const decodedToken = await adminAuth.verifyIdToken(token);
     const userDoc = await adminDb.collection("users").doc(decodedToken.uid).get();
-    
+
     if (!userDoc.exists) {
       throw new Error("Unauthorized: User profile not found");
     }
@@ -30,6 +30,11 @@ export async function getAuthenticatedServerUser() {
     };
   } catch (error) {
     console.error("Token verification failed:", error);
+    // A misconfigured Admin SDK (bad/missing env vars) is a server config problem,
+    // not a bad token — don't mask it as "Unauthorized" or the real cause is lost.
+    if (error.isAdminConfigError) {
+      throw error;
+    }
     throw new Error("Unauthorized: Invalid token");
   }
 }

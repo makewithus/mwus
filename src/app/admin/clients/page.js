@@ -15,14 +15,17 @@ export default function AdminClientsPage() {
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     companyName: "",
     contactPerson: "",
     email: "",
     phone: "",
     location: "",
-    notes: ""
-  });
+    website: "",
+    notes: "",
+    clientSource: ""
+  };
+  const [formData, setFormData] = useState(initialFormData);
 
   const fetchClients = async () => {
     try {
@@ -67,9 +70,9 @@ export default function AdminClientsPage() {
         throw new Error(data.error || "Failed to create client");
       }
 
-      toast.success("Client created successfully");
+      toast.success("Client created successfully. A portal access email has been sent.");
       setShowModal(false);
-      setFormData({ companyName: "", contactPerson: "", email: "", phone: "", location: "", notes: "" });
+      setFormData(initialFormData);
       fetchClients();
     } catch (error) {
       toast.error(error.message);
@@ -157,13 +160,33 @@ export default function AdminClientsPage() {
                   value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Phone</label>
-                <input type="tel" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
+                <label className="block text-sm font-medium mb-1">Phone *</label>
+                <input required type="tel" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   value={formData.phone} onChange={e => {
                     const val = e.target.value.replace(/[^0-9+\-\s()]/g, '');
                     if (e.target.value !== val) e.target.value = val;
                     setFormData({...formData, phone: val});
                   }} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Country / Location *</label>
+                <input required type="text" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Website</label>
+                <input type="url" placeholder="https://" className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={formData.website} onChange={e => setFormData({...formData, website: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Client Source</label>
+                <input type="text" placeholder="Referral, outbound, etc." className="w-full flex h-10 rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={formData.clientSource} onChange={e => setFormData({...formData, clientSource: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <textarea rows={2} className="w-full flex rounded-sm border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>

@@ -45,41 +45,43 @@ export async function POST(request) {
       status: "active"
     });
 
-    // 3. Generate a password reset link
-    const resetLink = await adminAuth.generatePasswordResetLink(email);
+    // 3. Generate a password reset link, then email it.
+    // This must never fail the request — the account already exists at this point,
+    // and a thrown error here would report a 500 while leaving a half-invited developer behind.
+    try {
+      const resetLink = await adminAuth.generatePasswordResetLink(email);
 
-    // 4. Send the invite email via Nodemailer
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || "smtp.gmail.com",
-      port: process.env.SMTP_PORT || 587,
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
+      if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST || "smtp.gmail.com",
+          port: process.env.SMTP_PORT || 587,
+          secure: false, // true for 465, false for other ports
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+        });
 
-    const mailOptions = {
-      from: process.env.SMTP_FROM || '"MakeWithUs Portal" <noreply@makewithus.com>',
-      to: email,
-      subject: "You have been invited to MakeWithUs",
-      html: `
-        <div style="font-family: sans-serif; max-w-md; margin: 0 auto;">
-          <h2>Welcome to MakeWithUs!</h2>
-          <p>Hi ${name},</p>
-          <p>You have been invited as a Developer to the MakeWithUs Client Tracking Portal.</p>
-          <p>Please click the link below to set your password and access your dashboard:</p>
-          <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 4px; margin-top: 10px;">Set Password</a>
-          <p style="margin-top: 20px; font-size: 12px; color: #666;">If you have any questions, please contact the admin team.</p>
-        </div>
-      `,
-    };
-
-    // Only attempt to send if SMTP credentials exist, otherwise just log it for dev
-    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-      await transporter.sendMail(mailOptions);
-    } else {
-      console.warn("SMTP credentials missing. Invite link generated but not emailed:", resetLink);
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || '"MakeWithUs Portal" <noreply@makewithus.com>',
+          to: email,
+          subject: "You have been invited to MakeWithUs",
+          html: `
+            <div style="font-family: sans-serif; max-w-md; margin: 0 auto;">
+              <h2>Welcome to MakeWithUs!</h2>
+              <p>Hi ${name},</p>
+              <p>You have been invited as a Developer to the MakeWithUs Client Tracking Portal.</p>
+              <p>Please click the link below to set your password and access your dashboard:</p>
+              <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 4px; margin-top: 10px;">Set Password</a>
+              <p style="margin-top: 20px; font-size: 12px; color: #666;">If you have any questions, please contact the admin team.</p>
+            </div>
+          `,
+        });
+      } else {
+        console.warn("SMTP credentials missing. Invite link generated but not emailed:", resetLink);
+      }
+    } catch (emailError) {
+      console.error("Developer created, but invite email failed to send:", emailError);
     }
 
     return NextResponse.json({ message: "Developer invited successfully." });
